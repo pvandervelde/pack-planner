@@ -1,0 +1,25 @@
+name: Rust CI
+
+on:
+  push:
+    branches:
+      - "**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up Rust
+        uses: actions/checkout@v2
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+      - name: Build
+        run: cargo build --verbose
+      - name: Test
+        run: cargo test --verbose
+      - name: Doc
+        run: cargo doc --verbose
