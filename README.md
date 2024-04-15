@@ -2,6 +2,8 @@
 
 A small application for sorting items into different packs based on their weight and quantity.
 
+![rust build](https://github.com/pvandervelde/pack-planner/actions/workflows/rust.yml/badge.svg)
+
 ## Requirements
 
 An item is represented by an ID, a length, a weight and the quantity. A pack is represented by a
