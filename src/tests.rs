@@ -1,4 +1,4 @@
-use std::io::{Cursor, Write};
+use std::io::Cursor;
 
 use crate::*;
 
