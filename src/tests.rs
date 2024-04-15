@@ -1,4 +1,4 @@
-use std::io::Cursor;
+use std::io::{Cursor, Write};
 
 use crate::*;
 
@@ -168,7 +168,7 @@ fn when_parsing_a_pack_input_with_an_invalid_weight_it_should_return_an_error() 
 // parse_input()
 
 #[test]
-fn test_parse_input_valid() {
+fn when_parsing_a_valid_input_it_should_return_the_templates() {
     let input = "NATURAL,10,20.0\n100,10.5,20,3.0\n110,8.0,15,5.0";
     let mut cursor = Cursor::new(input);
     let result = parse_input(&mut cursor);
@@ -184,7 +184,7 @@ fn test_parse_input_valid() {
 }
 
 #[test]
-fn test_parse_input_invalid_pack_information() {
+fn when_parsing_input_with_invalid_pack_information_it_should_return_an_error() {
     let input = "INVALID_KEYWORD,10,20.0\n100,10.5,20,3.0";
     let mut cursor = Cursor::new(input);
     let result = parse_input(&mut cursor);
@@ -192,7 +192,7 @@ fn test_parse_input_invalid_pack_information() {
 }
 
 #[test]
-fn test_parse_input_duplicate_pack_information() {
+fn when_parsing_input_with_duplicate_pack_information_it_should_return_an_error() {
     let input = "NATURAL,10,20.0\nNATURAL,8,15.0\n100,10.5,20,3.0";
     let mut cursor = Cursor::new(input);
     let result = parse_input(&mut cursor);
@@ -200,9 +200,88 @@ fn test_parse_input_duplicate_pack_information() {
 }
 
 #[test]
-fn test_parse_input_invalid_item_format() {
+fn when_parsing_input_with_invalid_item_information_it_should_return_an_error() {
     let input = "NATURAL,10,20.0\ninvalid_item_format\n100,10.5,20,3.0";
     let mut cursor = Cursor::new(input);
     let result = parse_input(&mut cursor);
     assert!(result.is_err());
+}
+
+// maximum_number_of_items_to_add
+#[test]
+fn when_finding_the_maximum_items_with_a_weight_limit_it_should_return_the_correct_count() {
+    let pack_template = PackTemplate {
+        maximum_number_of_pieces: 10,
+        maximum_weight: 50.0,
+        sort_order: PackSortOrder::NotSet,
+    };
+    let current_pack_weight = 30.0;
+    let current_pack_item_count = 5;
+    let template = ItemTemplate {
+        id: "item1".to_string(),
+        length: 10.0,
+        weight: 5.0,
+        count: 1,
+    };
+    assert_eq!(
+        maximum_number_of_items_to_add(
+            &pack_template,
+            current_pack_weight,
+            current_pack_item_count,
+            &template
+        ),
+        4
+    );
+}
+
+#[test]
+fn when_finding_the_maximum_items_with_an_item_limit_it_should_return_the_correct_count() {
+    let pack_template = PackTemplate {
+        maximum_number_of_pieces: 10,
+        maximum_weight: 50.0,
+        sort_order: PackSortOrder::NotSet,
+    };
+    let current_pack_weight = 20.0;
+    let current_pack_item_count = 9;
+    let template = ItemTemplate {
+        id: "item1".to_string(),
+        length: 10.0,
+        weight: 5.0,
+        count: 1,
+    };
+    assert_eq!(
+        maximum_number_of_items_to_add(
+            &pack_template,
+            current_pack_weight,
+            current_pack_item_count,
+            &template
+        ),
+        1
+    );
+}
+
+#[test]
+fn when_finding_the_maximum_items_with_no_limit_it_should_return_the_correct_count() {
+    let pack_template = PackTemplate {
+        maximum_number_of_pieces: 10,
+        maximum_weight: 50.0,
+        sort_order: PackSortOrder::NotSet,
+    };
+    let current_pack_weight = 45.0;
+    let current_pack_item_count = 9;
+    let template = ItemTemplate {
+        id: "item1".to_string(),
+        length: 10.0,
+        weight: 5.0,
+        count: 1,
+    };
+    assert_eq!(
+        maximum_number_of_items_to_add(
+            &pack_template,
+            current_pack_weight,
+            current_pack_item_count,
+            &template
+        ),
+        1
+    );
 }

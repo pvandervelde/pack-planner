@@ -144,11 +144,12 @@ const ITEM_QUANTITY_INDEX: usize = 2;
 const ITEM_WEIGHT_INDEX: usize = 3;
 
 /// Contains properties for an item and the number of items with these properties as provided in the input.
+#[derive(Clone)]
 struct ItemTemplate {
     id: String,
-    length: f32,
-    weight: f32,
-    count: usize,
+    length: f64,
+    weight: f64,
+    count: i32,
 }
 
 impl FromStr for ItemTemplate {
@@ -165,7 +166,7 @@ impl FromStr for ItemTemplate {
 
         let id = parts[ITEM_ID_INDEX].to_string();
 
-        let mut length: f32 = 0.0;
+        let length;
         match parts[ITEM_LENGTH_INDEX].parse() {
             Ok(v) => length = v,
             Err(e) => {
@@ -177,7 +178,7 @@ impl FromStr for ItemTemplate {
             }
         };
 
-        let mut weight = 0.0;
+        let weight;
         match parts[ITEM_WEIGHT_INDEX].parse() {
             Ok(v) => weight = v,
             Err(e) => {
@@ -189,7 +190,7 @@ impl FromStr for ItemTemplate {
             }
         };
 
-        let mut count = 0;
+        let count;
         match parts[ITEM_QUANTITY_INDEX].parse() {
             Ok(v) => count = v,
             Err(e) => {
@@ -223,8 +224,8 @@ enum PackSortOrder {
 }
 
 struct PackTemplate {
-    maximum_number_of_pieces: usize,
-    maximum_weight: f32,
+    maximum_number_of_pieces: i32,
+    maximum_weight: f64,
     sort_order: PackSortOrder,
 }
 
@@ -246,7 +247,7 @@ impl PackTemplate {
             });
         }
 
-        let mut pack_sort_order = PackSortOrder::NotSet;
+        let pack_sort_order;
         match PackSortOrder::from_str(parts[PACK_SORT_ORDER_INDEX]) {
             Ok(s) => pack_sort_order = s,
             Err(e) => {
@@ -258,7 +259,7 @@ impl PackTemplate {
             }
         };
 
-        let mut maximum_number_of_items = 0;
+        let maximum_number_of_items;
         match parts[PACK_MAXIMUM_ITEM_COUNT_INDEX].parse() {
             Ok(v) => maximum_number_of_items = v,
             Err(e) => {
@@ -270,7 +271,7 @@ impl PackTemplate {
             }
         };
 
-        let mut maximum_weight = 0.0;
+        let maximum_weight;
         match parts[PACK_MAXIMUM_WEIGHT_INDEX].parse() {
             Ok(v) => maximum_weight = v,
             Err(e) => {
@@ -288,18 +289,6 @@ impl PackTemplate {
 
         Ok(())
     }
-}
-
-struct Pack {
-    maximum_number_of_pieces: usize,
-    maximum_weight: f32,
-    //items: Vec<Item>,
-}
-
-impl Pack {
-    // Number of pieces
-    // Space left
-    // Weight left
 }
 
 fn parse_input<R: BufRead>(reader: &mut R) -> Result<(PackTemplate, Vec<ItemTemplate>), Error> {
@@ -357,9 +346,132 @@ fn parse_input<R: BufRead>(reader: &mut R) -> Result<(PackTemplate, Vec<ItemTemp
     Ok((pack_template, item_templates))
 }
 
+fn maximum_number_of_items_to_add(
+    pack_template: &PackTemplate,
+    current_pack_weight: f64,
+    current_pack_item_count: i32,
+    template: &ItemTemplate,
+) -> i32 {
+    let weight_space_in_pack = pack_template.maximum_weight - current_pack_weight;
+    let item_space_in_pack = pack_template.maximum_number_of_pieces - current_pack_item_count;
+
+    let max_items_by_weight = (weight_space_in_pack / template.weight).floor() as i32;
+    let items_to_add = if max_items_by_weight < item_space_in_pack {
+        max_items_by_weight
+    } else {
+        item_space_in_pack
+    };
+    items_to_add
+}
+
+fn print_item_line(item: &ItemTemplate, count: i32) {
+    println!(
+        "{},{:.1},{},{:.1}",
+        item.id, item.length, count, item.weight
+    );
+}
+
+fn print_footer(current_weight: f64, pack_length: f64) {
+    println!("Pack Length: {pack_length:.1}, Pack Weight: {current_weight:.1}");
+}
+
+fn print_packs(items: Vec<ItemTemplate>, pack_template: PackTemplate) {
+    let mut pack_index = 0;
+    let mut current_pack_weight = pack_template.maximum_weight;
+    let mut current_pack_item_count = pack_template.maximum_number_of_pieces;
+    let mut longest_item_in_pack: f64 = 0.0;
+
+    for (index, template) in items.iter().enumerate() {
+        if template.weight > pack_template.maximum_weight {
+            // Uh oh
+            panic!("A single item weighs more than the maximum weight of the pack. We will never be able to add it.");
+        }
+
+        let mut items_left_from_current_batch = template.count;
+        while items_left_from_current_batch > 0 {
+            let mut items_to_add = maximum_number_of_items_to_add(
+                &pack_template,
+                current_pack_weight,
+                current_pack_item_count,
+                &template,
+            );
+            if items_to_add > 0 {
+                let items_to_pack: i32;
+                (items_to_pack, items_left_from_current_batch) =
+                    if items_to_add < items_left_from_current_batch {
+                        (items_to_add, items_left_from_current_batch - items_to_add)
+                    } else {
+                        (items_left_from_current_batch, 0)
+                    };
+
+                print_item_line(&template, items_to_pack);
+                current_pack_weight += (items_to_pack as f64) * template.weight;
+                current_pack_item_count += items_to_pack;
+
+                longest_item_in_pack = if template.length > longest_item_in_pack {
+                    template.length
+                } else {
+                    longest_item_in_pack
+                };
+
+                items_to_add -= items_to_pack;
+            }
+
+            if items_to_add <= 0 {
+                // Print a summary if we have printed at least one pack
+                if pack_index > 0 {
+                    print_footer(current_pack_weight, longest_item_in_pack);
+                    println!();
+                }
+
+                pack_index += 1;
+                longest_item_in_pack = 0.0;
+                current_pack_weight = 0.0;
+                current_pack_item_count = 0;
+
+                // print the header
+                if index <= items.len() - 1 && items_left_from_current_batch > 0 {
+                    println!("Pack Number: {pack_index}");
+                }
+            }
+        }
+    }
+
+    //print_footer(current_pack_weight, longest_item_in_pack);
+}
+
 fn main() {
     let stdin = io::stdin();
     let (pack_template, item_templates) = parse_input(&mut stdin.lock()).expect("Parsing failure.");
 
-    // Now do something with the templates.
+    let items = match pack_template.sort_order {
+        PackSortOrder::Natural => {
+            // Do nothing. Just pass it through as it was
+            item_templates
+        }
+        PackSortOrder::ShortToLong => {
+            let mut sorted_order = item_templates.clone();
+            sorted_order.sort_by(|a, b| {
+                a.length
+                    .partial_cmp(&b.length)
+                    .expect("There shouldn't be any NaN's")
+            });
+            sorted_order
+        }
+        PackSortOrder::LongToShort => {
+            let mut sorted_order = item_templates.clone();
+            sorted_order.sort_by(|a, b| {
+                b.length
+                    .partial_cmp(&a.length)
+                    .expect("There shouldn't be any NaN's")
+            });
+            sorted_order
+        }
+        _ => {
+            // Error
+            panic!("Undefined sort order detected.")
+        }
+    };
+
+    print_packs(items, pack_template);
 }
